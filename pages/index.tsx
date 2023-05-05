@@ -1,27 +1,14 @@
-import { Layout, Text, Page } from '@vercel/examples-ui'
 import { Chat } from '../components/Chat'
-
 function Home() {
   return (
-    <Page className="flex flex-col gap-12">
-      <section className="flex flex-col gap-6">
-        <Text variant="h1">OpenAI GPT-3 text model usage example</Text>
-        <Text className="text-zinc-600">
-          In this example, a simple chat bot is implemented using Next.js, API
-          Routes, and OpenAI API.
-        </Text>
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <Text variant="h2">AI Chat Bot:</Text>
-        <div className="lg:w-2/3">
+    <div className="flex flex-col items-center min-h-screen bg-gradient-to-br from-teal-400 to-blue-500">
+      <div className="flex flex-col items-center gap-12 justify-center w-full max-w-4xl p-4">
+        <h1 className="text-4xl font-bold text-white">Code Buddy</h1>
+        <div className="w-full">
           <Chat />
         </div>
-      </section>
-    </Page>
+      </div>
+    </div>
   )
 }
-
-Home.Layout = Layout
-
 export default Home

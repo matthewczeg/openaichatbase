@@ -1,6 +1,6 @@
 # AI Chat GPT-3 example
 
-This example shows how to implement a simple chat bot using Next.js, API Routes, and [OpenAI ChatGPT API](https://beta.openai.com/docs/api-reference/completions/create).
+This is a chatbot that reads up to date code and always sends the up to date project code in the user message so the ai chatbot can bug-fix, troubleshoot and create new modules for the user with ease.
 
 ### Components
 
@@ -11,20 +11,6 @@ This example shows how to implement a simple chat bot using Next.js, API Routes,
 ## How to Use
 
 You can choose from one of the following two methods to use this repository:
-
-### One-Click Deploy
-
-Deploy the example using [Vercel](https://vercel.com?utm_source=github&utm_medium=readme&utm_campaign=vercel-examples):
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/vercel/examples/tree/main/solutions/ai-chatgpt&project-name=ai-chatgpt&repository-name=ai-chatgpt&env=OPENAI_API_KEY)
-
-### Clone and Deploy
-
-Execute [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app) with [pnpm](https://pnpm.io/installation) to bootstrap the example:
-
-```bash
-pnpm create next-app --example https://github.com/vercel/examples/tree/main/solutions/ai-chatgpt
-```
 
 #### Set up environment variables
 
@@ -43,5 +29,3 @@ pnpm dev
 ```
 
 The app should be up and running at http://localhost:3000.
-
-Deploy it to the cloud with [Vercel](https://vercel.com/new?utm_source=github&utm_medium=readme&utm_campaign=edge-middleware-eap) ([Documentation](https://nextjs.org/docs/deployment)).

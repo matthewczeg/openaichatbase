@@ -1,0 +1,107 @@
+```
+.
+    ├── pnpm-lock.yaml
+    ├── tailwind.config.js
+    ├── all_files.txt
+    ├── vercel.json
+    ├── turbo.json
+    ├── generate_code_tree.py
+    ├── utils
+    │   └── OpenAIStream.ts
+    ├── next-env.d.ts
+    ├── README.md
+    ├── components
+    │   ├── Chat.tsx
+    │   ├── Button.tsx
+    │   └── ChatLine.tsx
+    ├── public
+    │   └── favicon.ico
+    ├── .gitignore
+    ├── package-lock.json
+    ├── package.json
+    ├── tsconfig.json
+    ├── .env.example
+    ├── .vscode
+    │   └── settings.json
+    ├── postcss.config.js
+    ├── pages
+    │   ├── index.tsx
+    │   ├── api
+    │   │   ├── chat.ts
+    │   │   └── all_files.ts
+    │   └── _app.tsx
+    └── .eslintrc.json
+```
+
+
+tailwind.config.js - code
+---
+module.exports = {presets: [require('@vercel/examples-ui/tailwind')],content: ['./pages/**/*.{js,ts,jsx,tsx}','./components/**/*.{js,ts,jsx,tsx}','./node_modules/@vercel/examples-ui/**/*.js',],}
+
+---
+
+next-env.d.ts - code
+---
+/// <reference types="next" />/// <reference types="next/image-types/global" />// NOTE: This file should not be edited// see https://nextjs.org/docs/basic-features/typescript for more information.
+
+---
+
+README.md - code
+---
+# AI Chat GPT-3 exampleThis is a chatbot that reads up to date code and always sends the up to date project code in the user message so the ai chatbot can bug-fix, troubleshoot and create new modules for the user with ease.### Components- Next.js- OpenAI API (ChatGPT) - streaming- API Routes (Edge runtime) - streaming## How to UseYou can choose from one of the following two methods to use this repository:#### Set up environment variablesRename [`.env.example`](.env.example) to `.env.local`:```bashcp .env.example .env.local```then, update `OPENAI_API_KEY` with your [OpenAI](https://beta.openai.com/account/api-keys) secret key.Next, run Next.js in development mode:```bashpnpm dev```The app should be up and running at http://localhost:3000.
+
+---
+
+postcss.config.js - code
+---
+// If you want to use other PostCSS plugins, see the following:// https://tailwindcss.com/docs/using-with-preprocessorsmodule.exports = {plugins: {tailwindcss: {},autoprefixer: {},},}
+
+---
+
+utils/OpenAIStream.ts - code
+---
+import {createParser,ParsedEvent,ReconnectInterval,} from 'eventsource-parser'export type ChatGPTAgent = 'user' | 'system' | 'assistant'export interface ChatGPTMessage {role: ChatGPTAgentcontent: string}export interface OpenAIStreamPayload {model: stringmessages: ChatGPTMessage[]temperature: numbertop_p: numberfrequency_penalty: numberpresence_penalty: numbermax_tokens: numberstream: booleanstop?: string[]user?: stringn: number}export async function OpenAIStream(payload: OpenAIStreamPayload) {const encoder = new TextEncoder()const decoder = new TextDecoder()let counter = 0const requestHeaders: Record<string, string> = {'Content-Type': 'application/json',Authorization: `Bearer ${process.env.OPENAI_API_KEY ?? ''}`,}if (process.env.OPENAI_API_ORG) {requestHeaders['OpenAI-Organization'] = process.env.OPENAI_API_ORG}const res = await fetch('https://api.openai.com/v1/chat/completions', {headers: requestHeaders,method: 'POST',body: JSON.stringify(payload),})const stream = new ReadableStream({async start(controller) {// callbackfunction onParse(event: ParsedEvent | ReconnectInterval) {if (event.type === 'event') {const data = event.data// https://beta.openai.com/docs/api-reference/completions/create#completions/create-streamif (data === '[DONE]') {console.log('DONE')controller.close()return}try {const json = JSON.parse(data)const text = json.choices[0].delta?.content || ''if (counter < 2 && (text.match(/\n/) || []).length) {// this is a prefix character (i.e., "\n\n"), do nothingreturn}const queue = encoder.encode(text)controller.enqueue(queue)counter++} catch (e) {// maybe parse errorcontroller.error(e)}}}// stream response (SSE) from OpenAI may be fragmented into multiple chunks// this ensures we properly read chunks and invoke an event for each SSE event streamconst parser = createParser(onParse)for await (const chunk of res.body as any) {parser.feed(decoder.decode(chunk))}},})return stream}
+
+---
+
+components/Chat.tsx - code
+---
+import { useEffect, useState } from 'react'import { Button } from './Button'import { type ChatGPTMessage, ChatLine, LoadingChatLine } from './ChatLine'import { useCookies } from 'react-cookie'const COOKIE_NAME = 'nextjs-example-ai-chat-gpt3'export const initialMessages: ChatGPTMessage[] = []const InputMessage = ({ input, setInput, sendMessage }: any) => (<div className="mt-6 flex clear-both"><inputtype="text"aria-label="chat input"requiredclassName="min-w-0 flex-auto appearance-none rounded-md border border-zinc-900/10 bg-white px-3 py-[calc(theme(spacing.2)-1px)] shadow-md shadow-zinc-800/5 placeholder:text-zinc-400 focus:border-teal-500 focus:outline-none focus:ring-4 focus:ring-teal-500/10 sm:text-sm"value={input}onKeyDown={(e) => {if (e.key === 'Enter') {sendMessage(input)setInput('')}}}onChange={(e) => {setInput(e.target.value)}}/><Buttontype="submit"className="ml-4 flex-none"onClick={() => {sendMessage(input)setInput('')}}>Send</Button></div>)export function Chat() {const [messages, setMessages] = useState<ChatGPTMessage[]>(initialMessages)const [input, setInput] = useState('')const [loading, setLoading] = useState(false)const [cookie, setCookie] = useCookies([COOKIE_NAME])const [allFilesContent, setAllFilesContent] = useState('')useEffect(() => {if (!cookie[COOKIE_NAME]) {const randomId = Math.random().toString(36).substring(7)setCookie(COOKIE_NAME, randomId)}fetch('/api/all_files').then((response) => response.text()).then((data) => setAllFilesContent(data))}, [cookie, setCookie])const sendMessage = async (message: string) => {setLoading(true)const newMessages = [{ role: 'user', content: message } as ChatGPTMessage,]setMessages(newMessages)const last10messages = [{ role: 'assistant', content: allFilesContent },...newMessages,].slice(-10)const response = await fetch('/api/chat', {method: 'POST',headers: { 'Content-Type': 'application/json' },body: JSON.stringify({ messages: last10messages, user: cookie[COOKIE_NAME] }),})console.log('Edge function returned.')if (!response.ok) {throw new Error(response.statusText)}const data = response.bodyif (!data) {return}const reader = data.getReader()const decoder = new TextDecoder()let done = falselet lastMessage = ''while (!done) {const { value, done: doneReading } = await reader.read()done = doneReadingconst chunkValue = decoder.decode(value)lastMessage = lastMessage + chunkValuesetMessages([...newMessages,{ role: 'assistant', content: lastMessage } as ChatGPTMessage,])setLoading(false)}}return (<div className="rounded-2xl border-zinc-100 lg:border lg:p-6 bg-white">{messages.map(({ content, role }, index) => (<ChatLine key={index} role={role} content={content} />))}{loading && <LoadingChatLine />}{messages.length < 2 && (<span className="mx-auto flex flex-grow text-gray-600 clear-both">Type a message to start the conversation</span>)}<InputMessage input={input} setInput={setInput} sendMessage={sendMessage} /></div>)}
+
+---
+
+components/Button.tsx - code
+---
+import clsx from 'clsx'export function Button({ className, ...props }: any) {return (<buttonclassName={clsx('inline-flex items-center gap-2 justify-center rounded-md py-2 px-3 text-sm outline-offset-2 transition active:transition-none','bg-zinc-600 font-semibold text-zinc-100 hover:bg-zinc-400 active:bg-zinc-800 active:text-zinc-100/70',className)}{...props}/>)}
+
+---
+
+components/ChatLine.tsx - code
+---
+import clsx from 'clsx'; import { Dracula } from 'react-syntax-highlighter/dist/cjs/styles/prism'; import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'; type ChatGPTAgent = 'user' | 'system' | 'assistant'; export interface ChatGPTMessage { role: ChatGPTAgent; content: string; }export const LoadingChatLine = () => (<div className="flex min-w-full animate-pulse px-4 py-5 sm:px-6"><div className="flex flex-grow space-x-3"><div className="min-w-0 flex-1"><p className="font-large text-xxl text-gray-900"><a href="#" className="hover:underline">AI</a></p><div className="space-y-4 pt-4"><div className="grid grid-cols-3 gap-4"><div className="col-span-2 h-2 rounded bg-zinc-500"></div><div className="col-span-1 h-2 rounded bg-zinc-500"></div></div><div className="h-2 rounded bg-zinc-500"></div></div></div></div></div>); export function ChatLine({ role = 'assistant', content }: ChatGPTMessage) { if (!content) { return null; } const isCode = content.includes('```'); const displayContent = isCode ? content.slice(3, -3) : content; return (<div className={role != 'assistant' ? 'float-right clear-both' : 'float-left clear-both'}><div className="float-right mb-5 rounded-lg bg-white px-4 py-5 shadow-lg ring-1 ring-zinc-100 sm:px-6"><div className="flex space-x-3"><div className="flex-1 gap-4"><p className="font-large text-xxl text-gray-900"><a href="#" className="hover:underline">{role == 'assistant' ? 'AI' : 'You'}</a></p>{isCode ? (<SyntaxHighlighter language="javascript" style={Dracula} className="w-5/8">{displayContent}</SyntaxHighlighter>) : (<p className={clsx('text break-words', role == 'assistant' ? 'font-semibold font-' : 'text-gray-400')}>{displayContent}</p>)}</div></div></div></div>); }
+
+---
+
+pages/index.tsx - code
+---
+import { Chat } from '../components/Chat'function Home() {return (<div className="flex flex-col items-center min-h-screen bg-gradient-to-br from-teal-400 to-blue-500"><div className="flex flex-col items-center gap-12 justify-center w-full max-w-4xl p-4"><h1 className="text-4xl font-bold text-white">Code Buddy</h1><div className="w-full"><Chat /></div></div></div>)}export default Home
+
+---
+
+pages/_app.tsx - code
+---
+import type { AppProps } from 'next/app'import { Analytics } from '@vercel/analytics/react'import type { LayoutProps } from '@vercel/examples-ui/layout'import { getLayout } from '@vercel/examples-ui'import '@vercel/examples-ui/globals.css'import { Dracula } from 'react-syntax-highlighter/dist/cjs/styles/prism';import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';function App({ Component, pageProps }: AppProps) {const Layout = getLayout<LayoutProps>(Component)return (<Layouttitle="ai-chatgpt"path="solutions/ai-chatgpt"description="ai-chatgpt"><Component {...pageProps} /><Analytics /></Layout>)}export default App
+
+---
+
+pages/api/chat.ts - code
+---
+import { type ChatGPTMessage } from '../../components/ChatLine'import { OpenAIStream, OpenAIStreamPayload } from '../../utils/OpenAIStream'// break the app if the API key is missingif (!process.env.OPENAI_API_KEY) {throw new Error('Missing Environment Variable OPENAI_API_KEY')}export const config = {runtime: 'edge',}const handler = async (req: Request): Promise<Response> => {const body = await req.json()const messages: ChatGPTMessage[] = [{role: 'system',content: `You are an extremely simple pilled but world class programmer. You prefer functional programming, have a preference for simplicity. You are also a helpful assistant.When you output functions, you output the higher level function first. You use descriptive names for functions. You prefer to assign functions to variables when you can. Functions should be pure, meaning, out of scope mutation, and mutation, is avoided.Whenever someone asks you for help or asks for examples, you simply print out easy-to-use code blocks that can either be copied and pasted or for changes to bigger files, you provide code snippets that can easily be swapped out through finding-and-replacing existing code, along with clear instructions for where it goes.You're also a perfect bug-finding system. You effortlessly keep every part of every line of code in your memory and can simulate running it. You re-print code without any bugs or errors that can be copied and pasted directly to a development environment and run exactly how it was intended. In this case, you need to print out the perfected version of this code that will compile and run with all features working.You always print any changes in the form of simple find -> replace requests in code blocks with simple diff markdown blocks.Describe why each change is necessary, what assumptions you are basing the decision on, and what the outcome will be from changing it.Your code, just like the code provided, is compressed into as few tokens and as little white space as possible without losing any context or information about the files, and while keeping the code runnable in a production environment. This makes it easy to skim in large blocks and debug with an LLM.`,},]messages.push(...body?.messages)const payload: OpenAIStreamPayload = {model: 'gpt-4',messages: messages,temperature: process.env.AI_TEMP ? parseFloat(process.env.AI_TEMP) : 0.2,max_tokens: process.env.AI_MAX_TOKENS? parseInt(process.env.AI_MAX_TOKENS): 100,top_p: 1,frequency_penalty: 0,presence_penalty: 0,stream: true,user: body?.user,n: 1,}const stream = await OpenAIStream(payload)return new Response(stream)}export default handler
+
+---
+
+pages/api/all_files.ts - code
+---
+import fs from 'fs'import path from 'path'const handler = async (_req: Request, res: Response) => {const filePath = path.join(process.cwd(), 'all_files.txt')const fileContent = fs.readFileSync(filePath, 'utf8')res.status(200).send(fileContent)}export default handler
+
+---

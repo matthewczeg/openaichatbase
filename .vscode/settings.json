@@ -1,0 +1,15 @@
+{
+    "emeraldwalk.runonsave": {
+        "commands": [
+            {
+                "match": "\\.\\w+$",
+                "isAsync": true,
+                "cmd": "python3 generate_code_tree.py"
+            }
+        ]
+    },
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter"
+    },
+    "python.formatting.provider": "none"
+}
